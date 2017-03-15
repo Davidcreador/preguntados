@@ -6,6 +6,7 @@ import firebaseApp from '../db';
 import './App.css';
 
 import {User} from './User';
+import Jugar from './Jugar';
 
 class App extends Component {
   constructor (props) {
@@ -13,7 +14,12 @@ class App extends Component {
 
     this.state = {
       username: '',
-      users: []
+      users: [],
+      questions: [],
+      jugando: false,
+      select: 0,
+      user1: null,
+      user2: null
     };
 
     this.handleSubmit = this.handleSubmit.bind(this);
@@ -25,6 +31,7 @@ class App extends Component {
   }
 
   componentDidMount () {
+    var questionRef = this._getRef().child('questions');
     const userRef = this._getRef().child('users');
     userRef.once('value', function (snapshot) {
       snapshot.forEach((user) => {
@@ -32,18 +39,27 @@ class App extends Component {
         this.setState({ users: this.state.users.concat(storeUser) });
       });
     }.bind(this));
+
+    questionRef.once('value', function (snapshot) {
+      snapshot.forEach((question) => {
+        this.setState({
+          questions: this.state.questions.concat(question.val())
+        });
+      });
+    }.bind(this));
   }
 
   writeNewPost (username) {
+    // Get a key for a new Post.
+    var newPostKey = this._getRef().child('users').push().key;
+
     // A post entry.
     var user = {
       username: username,
       win: 0,
-      lose: 0
+      lose: 0,
+      key: newPostKey
     };
-
-    // Get a key for a new Post.
-    var newPostKey = this._getRef().child('users').push().key;
 
     var updates = {};
     updates['/users/' + newPostKey] = user;
@@ -63,10 +79,23 @@ class App extends Component {
     this.writeNewPost(username);
   }
 
+  selectUser (user) {
+    if (this.state.select === 0) {
+      this.setState({ user1: user, select: 1 });
+    } else if (this.state.select === 1) {
+      this.setState({user2: user, select: 2});
+    }
+  }
+
   render () {
     const users = this.state.users.length
       ? this.state.users.map((user, i) => {
-        return <User key={i} userData={user} />;
+        return <User
+          selectUser={() => {
+            this.selectUser(user);
+          }}
+          key={i}
+          userData={user} />;
       })
       : null;
     return (
@@ -97,10 +126,22 @@ class App extends Component {
                   </div>
                 </form>
               </div>
-              <a className='waves-effect waves-light btn'>button</a>
+              { (this.state.user1 && this.state.user2)
+                ? <a
+                  onClick={() => {
+                    this.setState({ jugando: !this.state.jugando });
+                  }}
+                  className='waves-effect waves-light btn'>Jugar</a>
+                : null }
             </div>
           </div>
         </div>
+        { this.state.jugando
+          ? <Jugar
+            questions={this.state.questions}
+            username1={this.state.user1}
+            username2={this.state.user2} />
+          : null }
       </div>
     );
   }
